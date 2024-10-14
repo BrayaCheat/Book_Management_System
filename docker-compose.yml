@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  database:
+    image: mysql:8.0
+    container_name: database
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    ports:
+      - "3306:3306"  # Exposing MySQL's default port to host's 3307
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: server
+    environment:
+      DATABASE_URL: "${DB_USER}:${DB_PASSWORD}@tcp(${DB_URL})/${DB_NAME}"  # db:3306 for internal Docker network connection
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3000:3000"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # client:
+  #   build:
+  #     context: ./client
+  #     dockerfile: Dockerfile
+  #   container_name: client
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     database:
+  #       condition: service_healthy
+  #   networks:
+  #     - app-network
+
+volumes:
+  mysql_data:
+
+networks:
+  app-network:
+    driver: bridge
